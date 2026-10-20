@@ -1,0 +1,64 @@
+services:
+  # =========================================================================
+  # VM 1: Android Target Device (Samsung Galaxy S10 - Android 11.0 Emulator)
+  # Web GUI (noVNC): http://localhost:6080
+  # ADB Endpoint:    172.28.0.10:5555 (internal) / localhost:5555 (host)
+  # =========================================================================
+  android-target:
+    image: budtmo/docker-android:emulator_11.0
+    container_name: android-forensics-target
+    hostname: android-target
+    privileged: true
+    shm_size: '2gb'
+    devices:
+      - /dev/kvm:/dev/kvm
+    environment:
+      - EMULATOR_DEVICE=Samsung Galaxy S10
+      - WEB_VNC=true
+      - APPIUM=false
+      - EMULATOR_ADDITIONAL_ARGS=-writable-system -no-snapshot-save
+    ports:
+      - "6080:6080"   # Android Web VNC GUI
+      - "5554:5554"   # Emulator Console
+      - "5555:5555"   # ADB over TCP
+    networks:
+      forensics-net:
+        ipv4_address: 172.28.0.10
+    restart: unless-stopped
+
+  # =========================================================================
+  # VM 2: Kali Linux Mobile Forensics Workstation (XFCE Desktop + noVNC)
+  # Web GUI (noVNC): http://localhost:6081/vnc.html (Password: forensics)
+  # SSH Access:      ssh investigator@localhost -p 2222 (Password: forensics)
+  # =========================================================================
+  kali-forensics:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kali-forensics-workstation
+    hostname: kali-forensics
+    shm_size: '2gb'
+    depends_on:
+      - android-target
+    environment:
+      - ANDROID_TARGET_HOST=172.28.0.10
+      - ANDROID_TARGET_PORT=5555
+      - VNC_PASSWORD=forensics
+      - VNC_RESOLUTION=1920x1080
+    ports:
+      - "6081:6081"   # Kali Desktop Web GUI (noVNC)
+      - "5901:5901"   # Direct VNC Server Port
+      - "2222:2222"   # OpenSSH Server
+    volumes:
+      - ./evidence:/home/investigator/evidence
+    networks:
+      forensics-net:
+        ipv4_address: 172.28.0.20
+    restart: unless-stopped
+
+networks:
+  forensics-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16

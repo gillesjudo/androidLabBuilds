@@ -1,0 +1,5 @@
+# Ignore extracted evidence and instructor solution file
+evidence/
+.sol
+__pycache__/
+*.pyc
